@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mi Tiendita Infantil</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#fff7f8;color:#432c39}
+header{background:#f4c8d8;padding:22px 16px;text-align:center}
+header h1{margin:0}
+header p{margin:8px 0 0}
+main{max-width:900px;margin:auto;padding:18px}
+button,input,textarea{padding:12px;border-radius:9px;border:1px solid #e4c4d1;font-size:15px}
+button{cursor:pointer;background:#a43d6a;color:white;border:0;font-weight:bold}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:14px;margin-top:20px}
+.product,.cart,.order{background:white;border:1px solid #f0dce4;border-radius:15px;padding:14px}
+.pic{height:100px;display:grid;place-items:center;font-size:48px;background:#fff0f5;border-radius:10px}
+.product h3{margin:12px 0 6px}
+.product p{margin:6px 0}
+.product select{width:100%;margin:8px 0;padding:11px;border-radius:9px;border:1px solid #e4c4d1}
+.price{font-weight:bold;color:#a43d6a}
+.cart,.order{margin-top:22px}
+.item{padding:10px 0;border-bottom:1px solid #f0dce4}
+.small{font-size:13px;color:#765f6a}
+#status{padding:12px;background:#fce5ee;border-radius:9px;overflow-wrap:anywhere}
+input,textarea{display:block;width:100%;margin:7px 0 14px;background:white;color:#432c39}
+textarea{min-height:85px;resize:vertical}
+label{font-weight:bold;font-size:14px}
+[hidden]{display:none!important}
+button:disabled{opacity:.6;cursor:wait}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌸 Mi Tiendita Infantil 🌸</h1>
+  <p>Ropita bonita para bebés y niñas pequeñas</p>
+</header>
+
+<main>
+  <div class="top">
+    <div>
+      <strong>Mi tienda</strong>
+      <p class="small" id="customer">Comprobando tu cuenta...</p>
+    </div>
+    <button id="logout">Cerrar sesión</button>
+  </div>
+
+  <p id="status" role="status" aria-live="polite">Comprobando acceso...</p>
+
+  <section id="shop" hidden>
+    <h2>Catálogo de ropa</h2>
+    <p class="small">Precios de ejemplo en pesos mexicanos. Confirma precios y disponibilidad antes de vender.</p>
+    <div class="grid" id="products"></div>
+
+    <section class="cart">
+      <h2>🛒 Mi carrito</h2>
+      <div id="cartItems">Todavía no agregas productos.</div>
+      <h3 id="total">Total: $0 MXN</h3>
+      <button id="checkout">Preparar pedido</button>
+    </section>
+
+    <section id="orderSection" class="order" hidden>
+      <h2>Datos para tu pedido</h2>
+      <p class="small">Escribe tus datos para coordinar la entrega.</p>
+
+      <form id="orderForm">
+        <label for="customerName">Nombre completo</label>
+        <input id="customerName" required minlength="2" maxlength="100" autocomplete="name">
+
+        <label for="phone">Teléfono de contacto</label>
+        <input id="phone" type="tel" required minlength="8" maxlength="20" autocomplete="tel">
+
+        <label for="address">Dirección de entrega</label>
+        <textarea id="address" required minlength="8" maxlength="500" autocomplete="street-address"></textarea>
+
+        <button id="sendOrder" type="submit">Enviar pedido</button>
+        <button id="cancelOrder" type="button">Cancelar</button>
+      </form>
+    </section>
+
+    <section id="orderResult" class="order" hidden>
+      <h2>¡Pedido registrado!</h2>
+      <p id="orderNumber"></p>
+      <p><strong>Estado: pendiente de pago.</strong></p>
+      <p>Tu pedido quedó registrado. El vendedor debe confirmar la disponibilidad y proporcionarte los datos bancarios para la transferencia.</p>
+      <p>No realices un pago hasta verificar que los datos bancarios corresponden al vendedor.</p>
+    </section>
+  </section>
+</main>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getAuth,onAuthStateChanged,signOut
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getFirestore,collection,addDoc,serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig={
+  apiKey:"AIzaSyA6OR24jRk1Cls_zPr_1U4E50Y4enIHigU",
+  authDomain:"logintermux-a5290.firebaseapp.com",
+  projectId:"logintermux-a5290",
+  storageBucket:"logintermux-a5290.firebasestorage.app",
+  messagingSenderId:"315238713743",
+  appId:"1:315238713743:web:896382fb1bc98bfe6fa3fa",
+  measurementId:"G-R29TC3MDJN"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
+const $=id=>document.getElementById(id);
+
+const products=[
+  {id:1,name:"Vestido de bebé",price:199,icon:"👗",sizes:["0-3 meses","3-6 meses","6-12 meses"]},
+  {id:2,name:"Mameluco",price:149,icon:"🩷",sizes:["0-3 meses","3-6 meses","6-12 meses"]},
+  {id:3,name:"Conjunto infantil",price:249,icon:"🎀",sizes:["12-18 meses","2 años","3 años"]},
+  {id:4,name:"Blusita infantil",price:129,icon:"🌸",sizes:["1 año","2 años","3 años"]},
+  {id:5,name:"Falda infantil",price:159,icon:"🌷",sizes:["1 año","2 años","3 años"]},
+  {id:6,name:"Pijama de bebé",price:179,icon:"🌙",sizes:["0-3 meses","3-6 meses","6-12 meses"]}
+];
+
+let cart=[];
+let currentUser=null;
+let sending=false;
+
+function message(text){
+  $("status").textContent=text;
+}
+
+function renderProducts(){
+  $("products").replaceChildren();
+
+  for(const p of products){
+    const card=document.createElement("article");
+    card.className="product";
+
+    const pic=document.createElement("div");
+    pic.className="pic";
+    pic.textContent=p.icon;
+
+    const name=document.createElement("h3");
+    name.textContent=p.name;
+
+    const price=document.createElement("p");
+    price.className="price";
+    price.textContent="$"+p.price+" MXN";
+
+    const size=document.createElement("select");
+    size.setAttribute("aria-label","Talla de "+p.name);
+
+    for(const s of p.sizes){
+      const option=document.createElement("option");
+      option.value=s;
+      option.textContent=s;
+      size.append(option);
+    }
+
+    const add=document.createElement("button");
+    add.textContent="Agregar al carrito";
+    add.style.width="100%";
+    add.onclick=()=>{
+      cart.push({id:p.id,name:p.name,price:p.price,size:size.value});
+      renderCart();
+      message("Producto agregado al carrito.");
+    };
+
+    card.append(pic,name,price,size,add);
+    $("products").append(card);
+  }
+}
+
+function renderCart(){
+  const area=$("cartItems");
+  area.replaceChildren();
+
+  if(cart.length===0){
+    area.textContent="Todavía no agregas productos.";
+  }else{
+    cart.forEach((item,index)=>{
+      const row=document.createElement("div");
+      row.className="item";
+
+      const description=document.createElement("p");
+      description.textContent=`${item.name} · Talla ${item.size} · $${item.price} MXN`;
+
+      const remove=document.createElement("button");
+      remove.textContent="Quitar";
+      remove.onclick=()=>{
+        cart.splice(index,1);
+        renderCart();
+      };
+
+      row.append(description,remove);
+      area.append(row);
+    });
+  }
+
+  const total=cart.reduce((sum,item)=>sum+item.price,0);
+  $("total").textContent="Total: $"+total.toFixed(2)+" MXN";
+}
+
+onAuthStateChanged(auth,user=>{
+  currentUser=user;
+
+  if(!user){
+    location.replace("index.html");
+    return;
+  }
+
+  $("customer").textContent=user.email||"Cuenta autenticada";
+  $("shop").hidden=false;
+  message("Sesión verificada. ¡Bienvenida a la tienda!");
+  renderProducts();
+  renderCart();
+});
+
+$("logout").onclick=async()=>{
+  try{
+    await signOut(auth);
+    location.replace("index.html");
+  }catch(error){
+    message("No se pudo cerrar sesión. Inténtalo de nuevo.");
+  }
+};
+
+$("checkout").onclick=()=>{
+  if(!currentUser){
+    message("Inicia sesión para continuar.");
+    return;
+  }
+
+  if(cart.length===0){
+    message("Agrega al menos una prenda al carrito.");
+    return;
+  }
+
+  $("orderResult").hidden=true;
+  $("orderSection").hidden=false;
+  $("orderSection").scrollIntoView({behavior:"smooth",block:"start"});
+  message("Completa tus datos para registrar el pedido.");
+};
+
+$("cancelOrder").onclick=()=>{
+  $("orderSection").hidden=true;
+  message("Puedes seguir comprando.");
+};
+
+$("orderForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+
+  if(sending)return;
+
+  if(!currentUser){
+    message("Tu sesión terminó. Inicia sesión nuevamente.");
+    return;
+  }
+
+  if(cart.length===0){
+    message("El carrito está vacío.");
+    $("orderSection").hidden=true;
+    return;
+  }
+
+  const customerName=$("customerName").value.trim();
+  const phone=$("phone").value.trim();
+  const address=$("address").value.trim();
+
+  if(customerName.length<2||phone.length<8||address.length<8){
+    message("Revisa tu nombre, teléfono y dirección.");
+    return;
+  }
+
+  const items=cart.map(item=>({
+    productId:item.id,
+    name:item.name,
+    price:item.price,
+    size:item.size
+  }));
+
+  const total=items.reduce((sum,item)=>sum+item.price,0);
+  const button=$("sendOrder");
+
+  sending=true;
+  button.disabled=true;
+  button.textContent="Enviando pedido...";
+
+  try{
+    const doc=await addDoc(collection(db,"orders"),{
+      userId:currentUser.uid,
+      customerName,
+      phone,
+      address,
+      items,
+      total,
+      paymentMethod:"transferencia",
+      status:"pendiente_pago",
+      createdAt:serverTimestamp()
+    });
+
+    cart=[];
+    renderCart();
+    $("orderForm").reset();
+    $("orderSection").hidden=true;
+    $("orderResult").hidden=false;
+    $("orderNumber").textContent="Número de pedido: "+doc.id;
+    $("orderResult").scrollIntoView({behavior:"smooth",block:"start"});
+    message("Pedido registrado. Falta coordinar el pago por transferencia.");
+  }catch(error){
+    console.error(error);
+    message("No se pudo guardar el pedido. Comprueba la conexión y las reglas de Firestore.");
+  }finally{
+    sending=false;
+    button.disabled=false;
+    button.textContent="Enviar pedido";
+  }
+});
+</script>
+</body>
+</html>
+

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LoginTermux</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;font-family:Arial,sans-serif;color:#fff;background:linear-gradient(135deg,#080d1b,#123958,#087e8b)}
+.card{width:100%;max-width:390px;padding:28px 24px;border-radius:24px;background:#101827ee;border:1px solid #ffffff25;box-shadow:0 20px 60px #0007}
+.logo{width:70px;height:70px;margin:0 auto 16px;border-radius:22px;background:#36d6bd;color:#10202a;display:grid;place-items:center;font-size:32px;font-weight:bold}
+h1{text-align:center;margin:0 0 8px}
+.sub{text-align:center;color:#b8c6d9;margin-bottom:25px}
+label{display:block;margin:15px 0 7px;font-size:14px}
+input{width:100%;padding:14px;border-radius:10px;border:1px solid #40536a;background:#182538;color:#fff;font-size:16px}
+input:focus{outline:1px solid #36d6bd}
+.passrow{display:flex;gap:8px}
+.passrow input{flex:1;min-width:0}
+button{width:100%;padding:14px;margin-top:13px;border:0;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer}
+.primary{background:#36d6bd;color:#10202a}
+.secondary{background:#26384d;color:white}
+.google{background:white;color:#222}
+.link{background:transparent;color:#55dfce}
+.danger{background:#8c3545;color:white}
+.message{padding:12px;margin-top:15px;border-radius:9px;background:#20344a;font-size:14px;overflow-wrap:anywhere;line-height:1.5}
+.hidden{display:none!important}
+.small{text-align:center;color:#aebdd0;font-size:12px;margin-top:18px}
+.center{text-align:center;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<main class="card">
+<div class="logo">L</div>
+<h1>Bienvenido</h1>
+<p class="sub">Accede a tu cuenta</p>
+
+<section id="login">
+<form id="loginForm">
+<label for="email">Correo electrónico</label>
+<input id="email" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email" required>
+
+<label for="password">Contraseña</label>
+<div class="passrow">
+<input id="password" type="password" placeholder="Tu contraseña" autocomplete="current-password" minlength="6" required>
+<button type="button" id="toggle" class="secondary" style="width:58px;margin:0">👁</button>
+</div>
+<button class="primary" type="submit">Iniciar sesión</button>
+</form>
+
+<button class="secondary" id="register">Crear cuenta nueva</button>
+<button class="link" id="reset">Olvidé mi contraseña</button>
+<button class="google" id="google">G &nbsp; Entrar con Google</button>
+<p class="small">Autenticación segura con Firebase</p>
+</section>
+
+<section id="account" class="hidden">
+<h2 class="center">¡Bienvenido!</h2>
+<p id="userEmail" class="center"></p>
+<button id="goShop" class="primary">Entrar a la tienda</button>
+<button id="logout" class="danger">Cerrar sesión</button>
+</section>
+
+<div id="message" class="message hidden" role="status" aria-live="polite"></div>
+</main>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+ getAuth,
+ onAuthStateChanged,
+ createUserWithEmailAndPassword,
+ signInWithEmailAndPassword,
+ GoogleAuthProvider,
+ signInWithPopup,
+ signOut,
+ sendPasswordResetEmail
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+const firebaseConfig={
+ apiKey:"AIzaSyA6OR24jRk1Cls_zPr_1U4E50Y4enIHigU",
+ authDomain:"logintermux-a5290.firebaseapp.com",
+ projectId:"logintermux-a5290",
+ storageBucket:"logintermux-a5290.firebasestorage.app",
+ messagingSenderId:"315238713743",
+ appId:"1:315238713743:web:896382fb1bc98bfe6fa3fa",
+ measurementId:"G-R29TC3MDJN"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const provider=new GoogleAuthProvider();
+const $=id=>document.getElementById(id);
+
+function show(text){
+ $("message").textContent=text;
+ $("message").classList.remove("hidden");
+}
+
+function showError(e){
+ const errors={
+  "auth/invalid-email":"El correo no es válido.",
+  "auth/invalid-credential":"Correo o contraseña incorrectos.",
+  "auth/email-already-in-use":"Ese correo ya está registrado.",
+  "auth/weak-password":"Usa una contraseña de al menos 6 caracteres.",
+  "auth/too-many-requests":"Demasiados intentos. Espera un momento.",
+  "auth/unauthorized-domain":"Este dominio no está autorizado en Firebase.",
+  "auth/operation-not-allowed":"Activa este método en Firebase Authentication.",
+  "auth/popup-closed-by-user":"Cerraste la ventana de Google."
+ };
+ show(errors[e.code] || "Ocurrió un error: "+e.message);
+}
+
+$("toggle").onclick=()=>{
+ const p=$("password");
+ p.type=p.type==="password"?"text":"password";
+};
+
+$("loginForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ try{
+  await signInWithEmailAndPassword(
+   auth,
+   $("email").value.trim(),
+   $("password").value
+  );
+ }catch(err){
+  showError(err);
+ }
+});
+
+$("register").onclick=async()=>{
+ const email=$("email").value.trim();
+ const password=$("password").value;
+
+ if(!email||!password){
+  show("Escribe tu correo y contraseña primero.");
+  return;
+ }
+
+ try{
+  await createUserWithEmailAndPassword(auth,email,password);
+ }catch(err){
+  showError(err);
+ }
+};
+
+$("google").onclick=async()=>{
+ try{
+  await signInWithPopup(auth,provider);
+ }catch(err){
+  showError(err);
+ }
+};
+
+$("reset").onclick=async()=>{
+ const email=$("email").value.trim();
+
+ if(!email){
+  show("Escribe tu correo para recuperar la contraseña.");
+  return;
+ }
+
+ try{
+  await sendPasswordResetEmail(auth,email);
+  show("Si la cuenta existe, recibirás instrucciones en tu correo.");
+ }catch(err){
+  showError(err);
+ }
+};
+
+$("goShop").onclick=()=>{
+ window.location.href="tienda.html";
+};
+
+$("logout").onclick=async()=>{
+ try{
+  await signOut(auth);
+  show("Sesión cerrada.");
+ }catch(err){
+  showError(err);
+ }
+};
+
+onAuthStateChanged(auth,user=>{
+ if(user){
+  $("login").classList.add("hidden");
+  $("account").classList.remove("hidden");
+  $("userEmail").textContent=user.email||"Sesión activa";
+
+  // Si ya hay una sesión activa, abrir la tienda.
+  window.location.replace("tienda.html");
+ }else{
+  $("login").classList.remove("hidden");
+  $("account").classList.add("hidden");
+ }
+});
+</script>
+</body>
+</html>
